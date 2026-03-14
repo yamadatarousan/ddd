@@ -31,11 +31,20 @@ func toTodoResponse(entity domain.Entity) createTodoResponse {
 	}
 }
 
+func writeUseCaseError(c *gin.Context, err error) {
+	if errors.Is(err, app.ErrTodoNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+}
+
 func NewRouter(
 	createUseCase app.CreateTodoUseCase,
 	completeUseCase app.CompleteTodoUseCase,
 	listUseCase app.ListTodoUseCase,
 	updateTitleUseCase app.UpdateTodoTitleUseCase,
+	deleteUseCase app.DeleteTodoUseCase,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -59,11 +68,7 @@ func NewRouter(
 	router.PATCH("/todos/:id/complete", func(c *gin.Context) {
 		entity, err := completeUseCase.Execute(app.CompleteTodoCommand{ID: c.Param("id")})
 		if err != nil {
-			if errors.Is(err, app.ErrTodoNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeUseCaseError(c, err)
 			return
 		}
 
@@ -96,15 +101,20 @@ func NewRouter(
 			Title: req.Title,
 		})
 		if err != nil {
-			if errors.Is(err, app.ErrTodoNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeUseCaseError(c, err)
 			return
 		}
 
 		c.JSON(http.StatusOK, toTodoResponse(entity))
+	})
+
+	router.DELETE("/todos/:id", func(c *gin.Context) {
+		err := deleteUseCase.Execute(app.DeleteTodoCommand{ID: c.Param("id")})
+		if err != nil {
+			writeUseCaseError(c, err)
+			return
+		}
+		c.Status(http.StatusNoContent)
 	})
 
 	return router

@@ -56,3 +56,17 @@ func (r *InMemoryTodoRepository) FindAll() ([]domain.Entity, error) {
 	copy(copied, r.items)
 	return copied, nil
 }
+
+func (r *InMemoryTodoRepository) DeleteByID(id string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for index := range r.items {
+		if r.items[index].ID() == id {
+			r.items = append(r.items[:index], r.items[index+1:]...)
+			return true, nil
+		}
+	}
+
+	return false, nil
+}

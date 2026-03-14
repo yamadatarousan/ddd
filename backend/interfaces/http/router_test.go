@@ -28,7 +28,8 @@ func newTestRouter(repository *httpapi.InMemoryTodoRepository) http.Handler {
 	completeUseCase := app.NewCompleteTodoUseCase(repository)
 	listUseCase := app.NewListTodoUseCase(repository)
 	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
-	return httpapi.NewRouter(createUseCase, completeUseCase, listUseCase, updateTitleUseCase)
+	deleteUseCase := app.NewDeleteTodoUseCase(repository)
+	return httpapi.NewRouter(createUseCase, completeUseCase, listUseCase, updateTitleUseCase, deleteUseCase)
 }
 
 func TestPOSTTodosでTodoを作成できること(t *testing.T) {
@@ -181,5 +182,49 @@ func TestPATCHTodosTitleで空タイトルは400になること(t *testing.T) {
 
 	if res.Code != http.StatusBadRequest {
 		t.Fatalf("400を期待: got=%d", res.Code)
+	}
+}
+
+func TestDELETETodosでTodoを削除できること(t *testing.T) {
+	repository := httpapi.NewInMemoryTodoRepository()
+	router := newTestRouter(repository)
+
+	createRes := postTodos(router, "牛乳を買う")
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("事前作成が失敗: got=%d", createRes.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/todos/todo-1", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusNoContent {
+		t.Fatalf("204を期待: got=%d", res.Code)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/todos", nil)
+	listRes := httptest.NewRecorder()
+	router.ServeHTTP(listRes, listReq)
+	if listRes.Code != http.StatusOK {
+		t.Fatalf("一覧取得が失敗: got=%d", listRes.Code)
+	}
+
+	var response []map[string]interface{}
+	if err := json.Unmarshal(listRes.Body.Bytes(), &response); err != nil {
+		t.Fatalf("レスポンスJSONの解析に失敗: %v", err)
+	}
+	if len(response) != 0 {
+		t.Fatalf("削除後は0件であるべき: got=%d", len(response))
+	}
+}
+
+func TestDELETETodosで存在しないTodoは404になること(t *testing.T) {
+	repository := httpapi.NewInMemoryTodoRepository()
+	router := newTestRouter(repository)
+
+	req := httptest.NewRequest(http.MethodDelete, "/todos/not-found", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("404を期待: got=%d", res.Code)
 	}
 }
