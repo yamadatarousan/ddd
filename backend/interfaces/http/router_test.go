@@ -9,7 +9,12 @@ import (
 
 	app "github.com/user/ddd/backend/application/todo"
 	httpapi "github.com/user/ddd/backend/interfaces/http"
+	"github.com/gin-gonic/gin"
 )
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
 
 func postTodos(router http.Handler, title string) *httptest.ResponseRecorder {
 	body := map[string]string{"title": title}
@@ -226,5 +231,26 @@ func TestDELETETodosで存在しないTodoは404になること(t *testing.T) {
 	router.ServeHTTP(res, req)
 	if res.Code != http.StatusNotFound {
 		t.Fatalf("404を期待: got=%d", res.Code)
+	}
+}
+
+func TestGETHealthで稼働確認できること(t *testing.T) {
+	repository := httpapi.NewInMemoryTodoRepository()
+	router := newTestRouter(repository)
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("200を期待: got=%d", res.Code)
+	}
+
+	var response map[string]string
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatalf("レスポンスJSONの解析に失敗: %v", err)
+	}
+	if response["status"] != "ok" {
+		t.Fatalf("statusが一致しない: got=%s", response["status"])
 	}
 }

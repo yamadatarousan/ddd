@@ -117,5 +117,9 @@ func NewRouter(
 		c.Status(http.StatusNoContent)
 	})
 
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	return router
 }
