@@ -25,6 +25,7 @@ func main() {
 	listUseCase := app.NewListTodoUseCase(repository)
 	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
 	deleteUseCase := app.NewDeleteTodoUseCase(repository)
+	reopenUseCase := app.NewReopenTodoUseCase(repository)
 
 	router := httpapi.NewRouter(
 		createUseCase,
@@ -32,6 +33,7 @@ func main() {
 		listUseCase,
 		updateTitleUseCase,
 		deleteUseCase,
+		reopenUseCase,
 	)
 
 	port := os.Getenv("PORT")

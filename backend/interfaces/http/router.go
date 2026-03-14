@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	app "github.com/user/ddd/backend/application/todo"
 	domain "github.com/user/ddd/backend/domain/todo"
-	"github.com/gin-gonic/gin"
 )
 
 type createTodoRequest struct {
@@ -45,6 +45,7 @@ func NewRouter(
 	listUseCase app.ListTodoUseCase,
 	updateTitleUseCase app.UpdateTodoTitleUseCase,
 	deleteUseCase app.DeleteTodoUseCase,
+	reopenUseCase app.ReopenTodoUseCase,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -67,6 +68,16 @@ func NewRouter(
 
 	router.PATCH("/todos/:id/complete", func(c *gin.Context) {
 		entity, err := completeUseCase.Execute(app.CompleteTodoCommand{ID: c.Param("id")})
+		if err != nil {
+			writeUseCaseError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, toTodoResponse(entity))
+	})
+
+	router.PATCH("/todos/:id/reopen", func(c *gin.Context) {
+		entity, err := reopenUseCase.Execute(app.ReopenTodoCommand{ID: c.Param("id")})
 		if err != nil {
 			writeUseCaseError(c, err)
 			return

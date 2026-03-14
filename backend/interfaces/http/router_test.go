@@ -35,7 +35,8 @@ func newTestRouter(repository *memory.TodoRepository) http.Handler {
 	listUseCase := app.NewListTodoUseCase(repository)
 	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
 	deleteUseCase := app.NewDeleteTodoUseCase(repository)
-	return httpapi.NewRouter(createUseCase, completeUseCase, listUseCase, updateTitleUseCase, deleteUseCase)
+	reopenUseCase := app.NewReopenTodoUseCase(repository)
+	return httpapi.NewRouter(createUseCase, completeUseCase, listUseCase, updateTitleUseCase, deleteUseCase, reopenUseCase)
 }
 
 func TestPOSTTodosでTodoを作成できること(t *testing.T) {
@@ -253,5 +254,49 @@ func TestGETHealthで稼働確認できること(t *testing.T) {
 	}
 	if response["status"] != "ok" {
 		t.Fatalf("statusが一致しない: got=%s", response["status"])
+	}
+}
+
+func TestPATCHTodosReopenでTodoを未完了に戻せること(t *testing.T) {
+	repository := memory.NewTodoRepository()
+	router := newTestRouter(repository)
+
+	createRes := postTodos(router, "牛乳を買う")
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("事前作成が失敗: got=%d", createRes.Code)
+	}
+
+	completeReq := httptest.NewRequest(http.MethodPatch, "/todos/todo-1/complete", nil)
+	completeRes := httptest.NewRecorder()
+	router.ServeHTTP(completeRes, completeReq)
+	if completeRes.Code != http.StatusOK {
+		t.Fatalf("完了処理が失敗: got=%d", completeRes.Code)
+	}
+
+	reopenReq := httptest.NewRequest(http.MethodPatch, "/todos/todo-1/reopen", nil)
+	reopenRes := httptest.NewRecorder()
+	router.ServeHTTP(reopenRes, reopenReq)
+	if reopenRes.Code != http.StatusOK {
+		t.Fatalf("200を期待: got=%d", reopenRes.Code)
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(reopenRes.Body.Bytes(), &response); err != nil {
+		t.Fatalf("レスポンスJSONの解析に失敗: %v", err)
+	}
+	if response["isCompleted"] != false {
+		t.Fatalf("isCompletedはfalseのはず: got=%v", response["isCompleted"])
+	}
+}
+
+func TestPATCHTodosReopenで存在しないTodoは404になること(t *testing.T) {
+	repository := memory.NewTodoRepository()
+	router := newTestRouter(repository)
+
+	req := httptest.NewRequest(http.MethodPatch, "/todos/not-found/reopen", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("404を期待: got=%d", res.Code)
 	}
 }

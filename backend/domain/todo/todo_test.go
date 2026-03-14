@@ -64,6 +64,29 @@ func Test完了済みを再度完了にしても状態が壊れないこと(t *t
 	}
 }
 
+func Test未完了に戻せること(t *testing.T) {
+	title, _ := todo.NewTitle("牛乳を買う")
+	entity := todo.NewEntity("todo-1", title)
+	entity.Complete()
+
+	entity.Reopen()
+
+	if entity.IsCompleted() {
+		t.Fatalf("Reopen後は未完了状態であるべき")
+	}
+}
+
+func Test未完了を再度未完了にしても状態が壊れないこと(t *testing.T) {
+	title, _ := todo.NewTitle("牛乳を買う")
+	entity := todo.NewEntity("todo-1", title)
+
+	entity.Reopen()
+
+	if entity.IsCompleted() {
+		t.Fatalf("再実行しても未完了状態を維持するべき")
+	}
+}
+
 func Testタイトルを変更できること(t *testing.T) {
 	title, _ := todo.NewTitle("牛乳を買う")
 	entity := todo.NewEntity("todo-1", title)

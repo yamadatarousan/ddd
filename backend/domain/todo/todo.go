@@ -71,6 +71,12 @@ func (e *Entity) Complete() {
 	e.isCompleted = true
 }
 
+// ReopenはTodoを未完了状態に戻す。
+// 未完了に再適用しても状態を壊さないよう、冪等に扱う。
+func (e *Entity) Reopen() {
+	e.isCompleted = false
+}
+
 // ChangeTitleはTodoのタイトルを差し替える。
 // タイトルの妥当性は値オブジェクト生成時に保証される前提で受け取る。
 func (e *Entity) ChangeTitle(title Title) {
