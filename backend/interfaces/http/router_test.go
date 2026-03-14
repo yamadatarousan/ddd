@@ -7,9 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	app "github.com/user/ddd/backend/application/todo"
-	httpapi "github.com/user/ddd/backend/interfaces/http"
 	"github.com/gin-gonic/gin"
+	app "github.com/user/ddd/backend/application/todo"
+	"github.com/user/ddd/backend/infrastructure/memory"
+	httpapi "github.com/user/ddd/backend/interfaces/http"
 )
 
 func init() {
@@ -28,7 +29,7 @@ func postTodos(router http.Handler, title string) *httptest.ResponseRecorder {
 	return res
 }
 
-func newTestRouter(repository *httpapi.InMemoryTodoRepository) http.Handler {
+func newTestRouter(repository *memory.TodoRepository) http.Handler {
 	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
 	completeUseCase := app.NewCompleteTodoUseCase(repository)
 	listUseCase := app.NewListTodoUseCase(repository)
@@ -38,7 +39,7 @@ func newTestRouter(repository *httpapi.InMemoryTodoRepository) http.Handler {
 }
 
 func TestPOSTTodosでTodoを作成できること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 	res := postTodos(router, "牛乳を買う")
 
@@ -63,7 +64,7 @@ func TestPOSTTodosでTodoを作成できること(t *testing.T) {
 }
 
 func TestPOSTTodosで空タイトルは400になること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 	res := postTodos(router, "")
 
@@ -73,7 +74,7 @@ func TestPOSTTodosで空タイトルは400になること(t *testing.T) {
 }
 
 func TestPATCHTodosCompleteでTodoを完了にできること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
@@ -99,7 +100,7 @@ func TestPATCHTodosCompleteでTodoを完了にできること(t *testing.T) {
 }
 
 func TestPATCHTodosCompleteで存在しないTodoは404になること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	req := httptest.NewRequest(http.MethodPatch, "/todos/not-found/complete", nil)
@@ -112,7 +113,7 @@ func TestPATCHTodosCompleteで存在しないTodoは404になること(t *testin
 }
 
 func TestGETTodosでTodo一覧を取得できること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
@@ -141,7 +142,7 @@ func TestGETTodosでTodo一覧を取得できること(t *testing.T) {
 }
 
 func TestPATCHTodosTitleでタイトル変更できること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
@@ -170,7 +171,7 @@ func TestPATCHTodosTitleでタイトル変更できること(t *testing.T) {
 }
 
 func TestPATCHTodosTitleで空タイトルは400になること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
@@ -191,7 +192,7 @@ func TestPATCHTodosTitleで空タイトルは400になること(t *testing.T) {
 }
 
 func TestDELETETodosでTodoを削除できること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
@@ -223,7 +224,7 @@ func TestDELETETodosでTodoを削除できること(t *testing.T) {
 }
 
 func TestDELETETodosで存在しないTodoは404になること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	req := httptest.NewRequest(http.MethodDelete, "/todos/not-found", nil)
@@ -235,7 +236,7 @@ func TestDELETETodosで存在しないTodoは404になること(t *testing.T) {
 }
 
 func TestGETHealthで稼働確認できること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)

@@ -7,11 +7,12 @@ import (
 	"sync/atomic"
 
 	app "github.com/user/ddd/backend/application/todo"
+	"github.com/user/ddd/backend/infrastructure/memory"
 	httpapi "github.com/user/ddd/backend/interfaces/http"
 )
 
 func main() {
-	repository := httpapi.NewInMemoryTodoRepository()
+	repository := memory.NewTodoRepository()
 
 	var idSequence uint64
 	generateID := func() string {
