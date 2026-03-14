@@ -1,9 +1,11 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 
 	app "github.com/user/ddd/backend/application/todo"
+	domain "github.com/user/ddd/backend/domain/todo"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +19,19 @@ type createTodoResponse struct {
 	IsCompleted bool   `json:"isCompleted"`
 }
 
-func NewRouter(usecase app.CreateTodoUseCase) *gin.Engine {
+func toTodoResponse(entity domain.Entity) createTodoResponse {
+	return createTodoResponse{
+		ID:          entity.ID(),
+		Title:       entity.Title().Value(),
+		IsCompleted: entity.IsCompleted(),
+	}
+}
+
+func NewRouter(
+	createUseCase app.CreateTodoUseCase,
+	completeUseCase app.CompleteTodoUseCase,
+	listUseCase app.ListTodoUseCase,
+) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
@@ -28,17 +42,41 @@ func NewRouter(usecase app.CreateTodoUseCase) *gin.Engine {
 			return
 		}
 
-		entity, err := usecase.Execute(app.CreateTodoCommand{Title: req.Title})
+		entity, err := createUseCase.Execute(app.CreateTodoCommand{Title: req.Title})
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusCreated, createTodoResponse{
-			ID:          entity.ID(),
-			Title:       entity.Title().Value(),
-			IsCompleted: entity.IsCompleted(),
-		})
+		c.JSON(http.StatusCreated, toTodoResponse(entity))
+	})
+
+	router.PATCH("/todos/:id/complete", func(c *gin.Context) {
+		entity, err := completeUseCase.Execute(app.CompleteTodoCommand{ID: c.Param("id")})
+		if err != nil {
+			if errors.Is(err, app.ErrTodoNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, toTodoResponse(entity))
+	})
+
+	router.GET("/todos", func(c *gin.Context) {
+		entities, err := listUseCase.Execute()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := make([]createTodoResponse, 0, len(entities))
+		for _, entity := range entities {
+			response = append(response, toTodoResponse(entity))
+		}
+		c.JSON(http.StatusOK, response)
 	})
 
 	return router
