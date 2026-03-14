@@ -78,7 +78,12 @@ func (e *Entity) Reopen() {
 }
 
 // ChangeTitleはTodoのタイトルを差し替える。
-// タイトルの妥当性は値オブジェクト生成時に保証される前提で受け取る。
-func (e *Entity) ChangeTitle(title Title) {
+// 直接Titleを受け取らず、必ずNewTitleを通して不正値の差し込みを防ぐ。
+func (e *Entity) ChangeTitle(value string) error {
+	title, err := NewTitle(value)
+	if err != nil {
+		return err
+	}
 	e.title = title
+	return nil
 }

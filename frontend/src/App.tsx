@@ -3,7 +3,9 @@ import {
   completeTodo,
   createTodo,
   deleteTodo,
+  fetchNotifications,
   fetchTodos,
+  Notification,
   reopenTodo,
   Todo,
   updateTodoTitle
@@ -18,6 +20,7 @@ function toCompletedValue(filter: Filter): boolean | undefined {
 
 export function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -38,8 +41,18 @@ export function App() {
     }
   }
 
+  async function loadNotifications(): Promise<void> {
+    try {
+      const items = await fetchNotifications();
+      setNotifications(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "通知取得に失敗しました");
+    }
+  }
+
   useEffect(() => {
     void loadTodos("all");
+    void loadNotifications();
     // 初回だけ読み込む。filterの変更はselectハンドラーで明示的に反映する。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -51,6 +64,7 @@ export function App() {
       await createTodo(newTitle);
       setNewTitle("");
       await loadTodos();
+      await loadNotifications();
     } catch (err) {
       setError(err instanceof Error ? err.message : "作成に失敗しました");
     }
@@ -65,6 +79,7 @@ export function App() {
         await completeTodo(todo.id);
       }
       await loadTodos();
+      await loadNotifications();
     } catch (err) {
       setError(err instanceof Error ? err.message : "状態変更に失敗しました");
     }
@@ -75,6 +90,7 @@ export function App() {
     try {
       await deleteTodo(id);
       await loadTodos();
+      await loadNotifications();
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     }
@@ -92,6 +108,7 @@ export function App() {
       setEditingId(null);
       setEditingTitle("");
       await loadTodos();
+      await loadNotifications();
     } catch (err) {
       setError(err instanceof Error ? err.message : "タイトル更新に失敗しました");
     }
@@ -176,6 +193,17 @@ export function App() {
             </li>
           ))}
         </ul>
+
+        <section className="notification-panel">
+          <h2>通知コンテキスト</h2>
+          <ul className="notification-list">
+            {notifications.map((item) => (
+              <li key={item.id}>
+                <span>{item.message}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </section>
     </main>
   );

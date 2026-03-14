@@ -40,12 +40,9 @@ func (u UpdateTodoTitleUseCase) Execute(command UpdateTodoTitleCommand) (domain.
 		return domain.Entity{}, ErrTodoNotFound
 	}
 
-	title, err := domain.NewTitle(command.Title)
-	if err != nil {
+	if err := entity.ChangeTitle(command.Title); err != nil {
 		return domain.Entity{}, err
 	}
-
-	entity.ChangeTitle(title)
 	if err := u.repository.Save(entity); err != nil {
 		return domain.Entity{}, err
 	}

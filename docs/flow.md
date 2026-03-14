@@ -1,34 +1,30 @@
 # 主要フロー
 
-## Todo作成から完了まで
+## Todo完了時のコンテキスト連携
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant H as HTTP Handler
-  participant A as Application UseCase
-  participant D as Domain Entity
-  participant R as Repository
-
-  U->>H: POST /todos {title}
-  H->>A: CreateTodoCommand
-  A->>D: NewTitle / NewEntity
-  A->>R: Save(entity)
-  A-->>H: entity
-  H-->>U: 201 Todo
+  participant H as Todo HTTP
+  participant T as Todo UseCase
+  participant I as Integration Adapter
+  participant N as Notification UseCase
 
   U->>H: PATCH /todos/:id/complete
-  H->>A: CompleteTodoCommand
-  A->>R: FindByID
-  A->>D: entity.Complete()
-  A->>R: Save(entity)
+  H->>T: CompleteTodoCommand
+  T->>T: entity.Complete()
+  T->>I: NotifyTodoCompleted(todoID, title)
+  I->>N: RecordTodoCompletedCommand
+  N-->>I: Notification
+  T-->>H: updated Todo
   H-->>U: 200 Todo
 ```
 
 ## 受け入れテスト対象フロー
-- 作成
+- Todo作成
 - タイトル変更
-- 完了
+- Todo完了
+- 通知一覧取得（通知コンテキスト）
 - 完了一覧取得
-- 再開
-- 削除
+- Todo再開
+- Todo削除
 - 最終一覧0件確認

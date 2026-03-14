@@ -66,7 +66,21 @@
 - `DELETE /todos/:id`
 - Response `204`
 
+### 8. 通知一覧（通知コンテキスト）
+- `GET /notifications`
+- Response `200`
+```json
+[
+  {
+    "id": "notification-1",
+    "message": "Todo[todo-1]を完了しました: 牛乳を買う",
+    "isRead": false,
+    "createdAt": "2026-03-14T09:00:00Z"
+  }
+]
+```
+
 ## エラー方針
 - 入力不正: `400`
 - 対象なし: `404`
-- その他: `500`（一覧取得のみ内部エラーを想定）
+- その他: `500`

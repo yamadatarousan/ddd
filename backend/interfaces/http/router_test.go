@@ -8,8 +8,12 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	notification "github.com/user/ddd/backend/application/notification"
 	app "github.com/user/ddd/backend/application/todo"
-	"github.com/user/ddd/backend/infrastructure/memory"
+	notificationmemory "github.com/user/ddd/backend/infrastructure/notification/memory"
+	notificationsystem "github.com/user/ddd/backend/infrastructure/notification/system"
+	"github.com/user/ddd/backend/infrastructure/todo/memory"
+	"github.com/user/ddd/backend/integration/todo_notification"
 	httpapi "github.com/user/ddd/backend/interfaces/http"
 )
 
@@ -30,13 +34,30 @@ func postTodos(router http.Handler, title string) *httptest.ResponseRecorder {
 }
 
 func newTestRouter(repository *memory.TodoRepository) http.Handler {
+	notificationRepository := notificationmemory.NewNotificationRepository()
+	recordNotificationUseCase := notification.NewRecordTodoCompletedUseCase(
+		notificationRepository,
+		notificationsystem.NewSequenceIDGenerator(),
+		notificationsystem.NewRealtimeClock(),
+	)
+	listNotificationUseCase := notification.NewListNotificationUseCase(notificationRepository)
+	notifier := todo_notification.NewNotifier(recordNotificationUseCase)
+
 	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
+	completeUseCase := app.NewCompleteTodoUseCaseWithNotifier(repository, notifier)
 	listUseCase := app.NewListTodoUseCase(repository)
 	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
 	deleteUseCase := app.NewDeleteTodoUseCase(repository)
 	reopenUseCase := app.NewReopenTodoUseCase(repository)
-	return httpapi.NewRouter(createUseCase, completeUseCase, listUseCase, updateTitleUseCase, deleteUseCase, reopenUseCase)
+	return httpapi.NewRouter(
+		createUseCase,
+		completeUseCase,
+		listUseCase,
+		updateTitleUseCase,
+		deleteUseCase,
+		reopenUseCase,
+		listNotificationUseCase,
+	)
 }
 
 func TestPOSTTodosでTodoを作成できること(t *testing.T) {
@@ -302,6 +323,41 @@ func TestGETHealthで稼働確認できること(t *testing.T) {
 	}
 	if response["status"] != "ok" {
 		t.Fatalf("statusが一致しない: got=%s", response["status"])
+	}
+}
+
+func TestGETNotificationsでTodo完了通知を取得できること(t *testing.T) {
+	repository := memory.NewTodoRepository()
+	router := newTestRouter(repository)
+
+	createRes := postTodos(router, "牛乳を買う")
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("事前作成が失敗: got=%d", createRes.Code)
+	}
+
+	completeReq := httptest.NewRequest(http.MethodPatch, "/todos/todo-1/complete", nil)
+	completeRes := httptest.NewRecorder()
+	router.ServeHTTP(completeRes, completeReq)
+	if completeRes.Code != http.StatusOK {
+		t.Fatalf("完了処理が失敗: got=%d", completeRes.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/notifications", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("200を期待: got=%d", res.Code)
+	}
+
+	var response []map[string]interface{}
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatalf("レスポンスJSONの解析に失敗: %v", err)
+	}
+	if len(response) != 1 {
+		t.Fatalf("通知は1件のはず: got=%d", len(response))
+	}
+	if response[0]["message"] == "" {
+		t.Fatalf("通知メッセージが空であってはならない")
 	}
 }
 

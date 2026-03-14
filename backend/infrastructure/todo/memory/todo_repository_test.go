@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	domain "github.com/user/ddd/backend/domain/todo"
-	"github.com/user/ddd/backend/infrastructure/memory"
+	"github.com/user/ddd/backend/infrastructure/todo/memory"
 )
 
 func Test保存したTodoをIDで取得できること(t *testing.T) {

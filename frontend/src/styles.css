@@ -93,6 +93,32 @@ button:hover {
   flex-wrap: wrap;
 }
 
+.notification-panel {
+  margin-top: 20px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+
+.notification-panel h2 {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+.notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.notification-list li {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
 .completed {
   text-decoration: line-through;
   color: #8c7f70;

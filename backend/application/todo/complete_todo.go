@@ -19,16 +19,45 @@ type CompleteRepository interface {
 	Save(entity domain.Entity) error
 }
 
+// TodoCompletionNotifierは、Todo管理コンテキスト外へ完了通知を伝えるポート。
+// 外部連携の詳細は持ち込まず、完了事実のみを通知する。
+type TodoCompletionNotifier interface {
+	NotifyTodoCompleted(todoID string, title string) error
+}
+
 type CompleteTodoCommand struct {
 	ID string
 }
 
 type CompleteTodoUseCase struct {
 	repository CompleteRepository
+	notifier   TodoCompletionNotifier
+}
+
+type noopTodoCompletionNotifier struct{}
+
+func (n noopTodoCompletionNotifier) NotifyTodoCompleted(_ string, _ string) error {
+	return nil
 }
 
 func NewCompleteTodoUseCase(repository CompleteRepository) CompleteTodoUseCase {
-	return CompleteTodoUseCase{repository: repository}
+	return CompleteTodoUseCase{
+		repository: repository,
+		notifier:   noopTodoCompletionNotifier{},
+	}
+}
+
+func NewCompleteTodoUseCaseWithNotifier(
+	repository CompleteRepository,
+	notifier TodoCompletionNotifier,
+) CompleteTodoUseCase {
+	if notifier == nil {
+		notifier = noopTodoCompletionNotifier{}
+	}
+	return CompleteTodoUseCase{
+		repository: repository,
+		notifier:   notifier,
+	}
 }
 
 func (u CompleteTodoUseCase) Execute(command CompleteTodoCommand) (domain.Entity, error) {
@@ -47,6 +76,9 @@ func (u CompleteTodoUseCase) Execute(command CompleteTodoCommand) (domain.Entity
 
 	entity.Complete()
 	if err := u.repository.Save(entity); err != nil {
+		return domain.Entity{}, err
+	}
+	if err := u.notifier.NotifyTodoCompleted(entity.ID(), entity.Title().Value()); err != nil {
 		return domain.Entity{}, err
 	}
 

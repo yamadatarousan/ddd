@@ -4,6 +4,13 @@ export type Todo = {
   isCompleted: boolean;
 };
 
+export type Notification = {
+  id: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+};
+
 type JsonValue = Record<string, unknown> | Array<unknown>;
 
 async function request<T extends JsonValue | void>(
@@ -67,4 +74,8 @@ export async function updateTodoTitle(id: string, title: string): Promise<Todo> 
 
 export async function deleteTodo(id: string): Promise<void> {
   await request<void>(`/todos/${id}`, { method: "DELETE" });
+}
+
+export async function fetchNotifications(): Promise<Notification[]> {
+  return await request<Notification[]>("/notifications");
 }

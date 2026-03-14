@@ -6,13 +6,18 @@ import (
 	"os"
 	"sync/atomic"
 
+	notification "github.com/user/ddd/backend/application/notification"
 	app "github.com/user/ddd/backend/application/todo"
-	"github.com/user/ddd/backend/infrastructure/memory"
+	notificationmemory "github.com/user/ddd/backend/infrastructure/notification/memory"
+	notificationsystem "github.com/user/ddd/backend/infrastructure/notification/system"
+	"github.com/user/ddd/backend/infrastructure/todo/memory"
+	"github.com/user/ddd/backend/integration/todo_notification"
 	httpapi "github.com/user/ddd/backend/interfaces/http"
 )
 
 func main() {
-	repository := memory.NewTodoRepository()
+	todoRepository := memory.NewTodoRepository()
+	notificationRepository := notificationmemory.NewNotificationRepository()
 
 	var idSequence uint64
 	generateID := func() string {
@@ -20,12 +25,20 @@ func main() {
 		return fmt.Sprintf("todo-%d", id)
 	}
 
-	createUseCase := app.NewCreateTodoUseCase(repository, generateID)
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
-	listUseCase := app.NewListTodoUseCase(repository)
-	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
-	deleteUseCase := app.NewDeleteTodoUseCase(repository)
-	reopenUseCase := app.NewReopenTodoUseCase(repository)
+	recordNotificationUseCase := notification.NewRecordTodoCompletedUseCase(
+		notificationRepository,
+		notificationsystem.NewSequenceIDGenerator(),
+		notificationsystem.NewRealtimeClock(),
+	)
+	listNotificationUseCase := notification.NewListNotificationUseCase(notificationRepository)
+	notifier := todo_notification.NewNotifier(recordNotificationUseCase)
+
+	createUseCase := app.NewCreateTodoUseCase(todoRepository, generateID)
+	completeUseCase := app.NewCompleteTodoUseCaseWithNotifier(todoRepository, notifier)
+	listUseCase := app.NewListTodoUseCase(todoRepository)
+	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(todoRepository)
+	deleteUseCase := app.NewDeleteTodoUseCase(todoRepository)
+	reopenUseCase := app.NewReopenTodoUseCase(todoRepository)
 
 	router := httpapi.NewRouter(
 		createUseCase,
@@ -34,6 +47,7 @@ func main() {
 		updateTitleUseCase,
 		deleteUseCase,
 		reopenUseCase,
+		listNotificationUseCase,
 	)
 
 	port := os.Getenv("PORT")

@@ -90,11 +90,25 @@ func Test未完了を再度未完了にしても状態が壊れないこと(t *t
 func Testタイトルを変更できること(t *testing.T) {
 	title, _ := todo.NewTitle("牛乳を買う")
 	entity := todo.NewEntity("todo-1", title)
-	newTitle, _ := todo.NewTitle("パンを買う")
 
-	entity.ChangeTitle(newTitle)
+	if err := entity.ChangeTitle("パンを買う"); err != nil {
+		t.Fatalf("有効タイトルへの変更は成功するべき: %v", err)
+	}
 
 	if entity.Title().Value() != "パンを買う" {
 		t.Fatalf("タイトルが変更されていない: got=%s", entity.Title().Value())
+	}
+}
+
+func Test不正なタイトルへ直接変更するとエラーになること(t *testing.T) {
+	title, _ := todo.NewTitle("牛乳を買う")
+	entity := todo.NewEntity("todo-1", title)
+
+	err := entity.ChangeTitle("")
+	if err == nil {
+		t.Fatalf("不正タイトルはエラーになるべき")
+	}
+	if entity.Title().Value() != "牛乳を買う" {
+		t.Fatalf("失敗時は元のタイトルを維持するべき: got=%s", entity.Title().Value())
 	}
 }

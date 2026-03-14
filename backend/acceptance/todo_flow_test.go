@@ -8,21 +8,34 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	notification "github.com/user/ddd/backend/application/notification"
 	app "github.com/user/ddd/backend/application/todo"
-	"github.com/user/ddd/backend/infrastructure/memory"
+	notificationmemory "github.com/user/ddd/backend/infrastructure/notification/memory"
+	notificationsystem "github.com/user/ddd/backend/infrastructure/notification/system"
+	"github.com/user/ddd/backend/infrastructure/todo/memory"
+	"github.com/user/ddd/backend/integration/todo_notification"
 	httpapi "github.com/user/ddd/backend/interfaces/http"
 )
 
 func Test主要フロー_作成更新完了再開削除まで一貫して成功すること(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	repository := memory.NewTodoRepository()
-	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
-	listUseCase := app.NewListTodoUseCase(repository)
-	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
-	deleteUseCase := app.NewDeleteTodoUseCase(repository)
-	reopenUseCase := app.NewReopenTodoUseCase(repository)
+	todoRepository := memory.NewTodoRepository()
+	notificationRepository := notificationmemory.NewNotificationRepository()
+	recordNotificationUseCase := notification.NewRecordTodoCompletedUseCase(
+		notificationRepository,
+		notificationsystem.NewSequenceIDGenerator(),
+		notificationsystem.NewRealtimeClock(),
+	)
+	listNotificationUseCase := notification.NewListNotificationUseCase(notificationRepository)
+	notifier := todo_notification.NewNotifier(recordNotificationUseCase)
+
+	createUseCase := app.NewCreateTodoUseCase(todoRepository, func() string { return "todo-1" })
+	completeUseCase := app.NewCompleteTodoUseCaseWithNotifier(todoRepository, notifier)
+	listUseCase := app.NewListTodoUseCase(todoRepository)
+	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(todoRepository)
+	deleteUseCase := app.NewDeleteTodoUseCase(todoRepository)
+	reopenUseCase := app.NewReopenTodoUseCase(todoRepository)
 	router := httpapi.NewRouter(
 		createUseCase,
 		completeUseCase,
@@ -30,6 +43,7 @@ func Test主要フロー_作成更新完了再開削除まで一貫して成功�
 		updateTitleUseCase,
 		deleteUseCase,
 		reopenUseCase,
+		listNotificationUseCase,
 	)
 
 	createRes := doJSONRequest(t, router, http.MethodPost, "/todos", map[string]string{"title": "牛乳を買う"})
@@ -45,6 +59,18 @@ func Test主要フロー_作成更新完了再開削除まで一貫して成功�
 	completeRes := doRequest(router, http.MethodPatch, "/todos/todo-1/complete", nil)
 	if completeRes.Code != http.StatusOK {
 		t.Fatalf("完了処理が失敗: got=%d body=%s", completeRes.Code, completeRes.Body.String())
+	}
+
+	notificationRes := doRequest(router, http.MethodGet, "/notifications", nil)
+	if notificationRes.Code != http.StatusOK {
+		t.Fatalf("通知一覧取得が失敗: got=%d body=%s", notificationRes.Code, notificationRes.Body.String())
+	}
+	var notifications []map[string]any
+	if err := json.Unmarshal(notificationRes.Body.Bytes(), &notifications); err != nil {
+		t.Fatalf("通知一覧の解析に失敗: %v", err)
+	}
+	if len(notifications) != 1 {
+		t.Fatalf("通知は1件のはず: %#v", notifications)
 	}
 
 	completedListRes := doRequest(router, http.MethodGet, "/todos?completed=true", nil)

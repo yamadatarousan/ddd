@@ -4,8 +4,10 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	notification "github.com/user/ddd/backend/application/notification"
 	app "github.com/user/ddd/backend/application/todo"
 	domain "github.com/user/ddd/backend/domain/todo"
 )
@@ -22,6 +24,13 @@ type createTodoResponse struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	IsCompleted bool   `json:"isCompleted"`
+}
+
+type notificationResponse struct {
+	ID        string    `json:"id"`
+	Message   string    `json:"message"`
+	IsRead    bool      `json:"isRead"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 func toTodoResponse(entity domain.Entity) createTodoResponse {
@@ -47,6 +56,7 @@ func NewRouter(
 	updateTitleUseCase app.UpdateTodoTitleUseCase,
 	deleteUseCase app.DeleteTodoUseCase,
 	reopenUseCase app.ReopenTodoUseCase,
+	listNotificationUseCase notification.ListNotificationUseCase,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -141,6 +151,25 @@ func NewRouter(
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	router.GET("/notifications", func(c *gin.Context) {
+		notifications, err := listNotificationUseCase.Execute()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := make([]notificationResponse, 0, len(notifications))
+		for _, item := range notifications {
+			response = append(response, notificationResponse{
+				ID:        item.ID(),
+				Message:   item.Message(),
+				IsRead:    item.IsRead(),
+				CreatedAt: item.CreatedAt(),
+			})
+		}
+		c.JSON(http.StatusOK, response)
 	})
 
 	return router
