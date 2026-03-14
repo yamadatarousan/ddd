@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	app "github.com/user/ddd/backend/application/todo"
@@ -87,7 +88,17 @@ func NewRouter(
 	})
 
 	router.GET("/todos", func(c *gin.Context) {
-		entities, err := listUseCase.Execute()
+		var completed *bool
+		if rawCompleted, exists := c.GetQuery("completed"); exists {
+			parsed, err := strconv.ParseBool(rawCompleted)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": app.ErrCompletedQueryInvalid.Error()})
+				return
+			}
+			completed = &parsed
+		}
+
+		entities, err := listUseCase.Execute(app.ListTodoCommand{Completed: completed})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

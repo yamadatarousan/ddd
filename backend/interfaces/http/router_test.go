@@ -142,6 +142,54 @@ func TestGETTodosでTodo一覧を取得できること(t *testing.T) {
 	}
 }
 
+func TestGETTodosでcompletedtrue指定時は完了Todoだけ取得できること(t *testing.T) {
+	repository := memory.NewTodoRepository()
+	router := newTestRouter(repository)
+
+	createRes := postTodos(router, "牛乳を買う")
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("事前作成が失敗: got=%d", createRes.Code)
+	}
+	_ = postTodos(router, "散歩する")
+
+	completeReq := httptest.NewRequest(http.MethodPatch, "/todos/todo-1/complete", nil)
+	completeRes := httptest.NewRecorder()
+	router.ServeHTTP(completeRes, completeReq)
+	if completeRes.Code != http.StatusOK {
+		t.Fatalf("完了処理が失敗: got=%d", completeRes.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/todos?completed=true", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("200を期待: got=%d", res.Code)
+	}
+
+	var response []map[string]interface{}
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatalf("レスポンスJSONの解析に失敗: %v", err)
+	}
+	if len(response) != 1 {
+		t.Fatalf("1件を期待: got=%d", len(response))
+	}
+	if response[0]["id"] != "todo-1" {
+		t.Fatalf("完了Todoだけ返るべき: got=%v", response[0]["id"])
+	}
+}
+
+func TestGETTodosでcompletedが不正値なら400になること(t *testing.T) {
+	repository := memory.NewTodoRepository()
+	router := newTestRouter(repository)
+
+	req := httptest.NewRequest(http.MethodGet, "/todos?completed=invalid", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("400を期待: got=%d", res.Code)
+	}
+}
+
 func TestPATCHTodosTitleでタイトル変更できること(t *testing.T) {
 	repository := memory.NewTodoRepository()
 	router := newTestRouter(repository)

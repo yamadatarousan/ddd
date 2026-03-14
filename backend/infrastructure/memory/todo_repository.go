@@ -54,6 +54,19 @@ func (r *TodoRepository) FindAll() ([]domain.Entity, error) {
 	return copied, nil
 }
 
+func (r *TodoRepository) FindByCompleted(isCompleted bool) ([]domain.Entity, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	filtered := make([]domain.Entity, 0, len(r.items))
+	for _, item := range r.items {
+		if item.IsCompleted() == isCompleted {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
+}
+
 func (r *TodoRepository) DeleteByID(id string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

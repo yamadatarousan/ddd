@@ -70,3 +70,25 @@ func TestDeleteByIDで削除できること(t *testing.T) {
 		t.Fatalf("削除後は見つからないべき")
 	}
 }
+
+func TestFindByCompletedで完了状態で絞り込めること(t *testing.T) {
+	repository := memory.NewTodoRepository()
+	title1, _ := domain.NewTitle("牛乳を買う")
+	title2, _ := domain.NewTitle("散歩する")
+
+	completed := domain.NewEntity("todo-1", title1)
+	completed.Complete()
+	_ = repository.Save(completed)
+	_ = repository.Save(domain.NewEntity("todo-2", title2))
+
+	entities, err := repository.FindByCompleted(true)
+	if err != nil {
+		t.Fatalf("絞り込み取得に失敗: %v", err)
+	}
+	if len(entities) != 1 {
+		t.Fatalf("1件を期待: got=%d", len(entities))
+	}
+	if entities[0].ID() != "todo-1" {
+		t.Fatalf("完了Todoのみ返るべき: got=%s", entities[0].ID())
+	}
+}
