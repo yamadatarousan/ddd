@@ -13,6 +13,10 @@ type createTodoRequest struct {
 	Title string `json:"title"`
 }
 
+type updateTodoTitleRequest struct {
+	Title string `json:"title"`
+}
+
 type createTodoResponse struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -31,6 +35,7 @@ func NewRouter(
 	createUseCase app.CreateTodoUseCase,
 	completeUseCase app.CompleteTodoUseCase,
 	listUseCase app.ListTodoUseCase,
+	updateTitleUseCase app.UpdateTodoTitleUseCase,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -77,6 +82,29 @@ func NewRouter(
 			response = append(response, toTodoResponse(entity))
 		}
 		c.JSON(http.StatusOK, response)
+	})
+
+	router.PATCH("/todos/:id/title", func(c *gin.Context) {
+		var req updateTodoTitleRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "不正なリクエストです"})
+			return
+		}
+
+		entity, err := updateTitleUseCase.Execute(app.UpdateTodoTitleCommand{
+			ID:    c.Param("id"),
+			Title: req.Title,
+		})
+		if err != nil {
+			if errors.Is(err, app.ErrTodoNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, toTodoResponse(entity))
 	})
 
 	return router

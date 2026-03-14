@@ -63,3 +63,15 @@ func Test完了済みを再度完了にしても状態が壊れないこと(t *t
 		t.Fatalf("再実行しても完了状態を維持するべき")
 	}
 }
+
+func Testタイトルを変更できること(t *testing.T) {
+	title, _ := todo.NewTitle("牛乳を買う")
+	entity := todo.NewEntity("todo-1", title)
+	newTitle, _ := todo.NewTitle("パンを買う")
+
+	entity.ChangeTitle(newTitle)
+
+	if entity.Title().Value() != "パンを買う" {
+		t.Fatalf("タイトルが変更されていない: got=%s", entity.Title().Value())
+	}
+}

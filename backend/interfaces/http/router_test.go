@@ -23,12 +23,17 @@ func postTodos(router http.Handler, title string) *httptest.ResponseRecorder {
 	return res
 }
 
-func TestPOSTTodosでTodoを作成できること(t *testing.T) {
-	repository := httpapi.NewInMemoryTodoRepository()
+func newTestRouter(repository *httpapi.InMemoryTodoRepository) http.Handler {
 	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
 	completeUseCase := app.NewCompleteTodoUseCase(repository)
 	listUseCase := app.NewListTodoUseCase(repository)
-	router := httpapi.NewRouter(createUseCase, completeUseCase, listUseCase)
+	updateTitleUseCase := app.NewUpdateTodoTitleUseCase(repository)
+	return httpapi.NewRouter(createUseCase, completeUseCase, listUseCase, updateTitleUseCase)
+}
+
+func TestPOSTTodosでTodoを作成できること(t *testing.T) {
+	repository := httpapi.NewInMemoryTodoRepository()
+	router := newTestRouter(repository)
 	res := postTodos(router, "牛乳を買う")
 
 	if res.Code != http.StatusCreated {
@@ -53,10 +58,7 @@ func TestPOSTTodosでTodoを作成できること(t *testing.T) {
 
 func TestPOSTTodosで空タイトルは400になること(t *testing.T) {
 	repository := httpapi.NewInMemoryTodoRepository()
-	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
-	listUseCase := app.NewListTodoUseCase(repository)
-	router := httpapi.NewRouter(createUseCase, completeUseCase, listUseCase)
+	router := newTestRouter(repository)
 	res := postTodos(router, "")
 
 	if res.Code != http.StatusBadRequest {
@@ -66,10 +68,7 @@ func TestPOSTTodosで空タイトルは400になること(t *testing.T) {
 
 func TestPATCHTodosCompleteでTodoを完了にできること(t *testing.T) {
 	repository := httpapi.NewInMemoryTodoRepository()
-	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
-	listUseCase := app.NewListTodoUseCase(repository)
-	router := httpapi.NewRouter(createUseCase, completeUseCase, listUseCase)
+	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
 	if createRes.Code != http.StatusCreated {
@@ -95,10 +94,7 @@ func TestPATCHTodosCompleteでTodoを完了にできること(t *testing.T) {
 
 func TestPATCHTodosCompleteで存在しないTodoは404になること(t *testing.T) {
 	repository := httpapi.NewInMemoryTodoRepository()
-	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
-	listUseCase := app.NewListTodoUseCase(repository)
-	router := httpapi.NewRouter(createUseCase, completeUseCase, listUseCase)
+	router := newTestRouter(repository)
 
 	req := httptest.NewRequest(http.MethodPatch, "/todos/not-found/complete", nil)
 	res := httptest.NewRecorder()
@@ -111,10 +107,7 @@ func TestPATCHTodosCompleteで存在しないTodoは404になること(t *testin
 
 func TestGETTodosでTodo一覧を取得できること(t *testing.T) {
 	repository := httpapi.NewInMemoryTodoRepository()
-	createUseCase := app.NewCreateTodoUseCase(repository, func() string { return "todo-1" })
-	completeUseCase := app.NewCompleteTodoUseCase(repository)
-	listUseCase := app.NewListTodoUseCase(repository)
-	router := httpapi.NewRouter(createUseCase, completeUseCase, listUseCase)
+	router := newTestRouter(repository)
 
 	createRes := postTodos(router, "牛乳を買う")
 	if createRes.Code != http.StatusCreated {
@@ -138,5 +131,55 @@ func TestGETTodosでTodo一覧を取得できること(t *testing.T) {
 	}
 	if response[0]["title"] != "牛乳を買う" {
 		t.Fatalf("titleが一致しない: got=%v", response[0]["title"])
+	}
+}
+
+func TestPATCHTodosTitleでタイトル変更できること(t *testing.T) {
+	repository := httpapi.NewInMemoryTodoRepository()
+	router := newTestRouter(repository)
+
+	createRes := postTodos(router, "牛乳を買う")
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("事前作成が失敗: got=%d", createRes.Code)
+	}
+
+	body := map[string]string{"title": "パンを買う"}
+	jsonBody, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPatch, "/todos/todo-1/title", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("200を期待: got=%d", res.Code)
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
+		t.Fatalf("レスポンスJSONの解析に失敗: %v", err)
+	}
+	if response["title"] != "パンを買う" {
+		t.Fatalf("titleが更新されていない: got=%v", response["title"])
+	}
+}
+
+func TestPATCHTodosTitleで空タイトルは400になること(t *testing.T) {
+	repository := httpapi.NewInMemoryTodoRepository()
+	router := newTestRouter(repository)
+
+	createRes := postTodos(router, "牛乳を買う")
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("事前作成が失敗: got=%d", createRes.Code)
+	}
+
+	body := map[string]string{"title": ""}
+	jsonBody, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPatch, "/todos/todo-1/title", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("400を期待: got=%d", res.Code)
 	}
 }

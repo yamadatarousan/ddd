@@ -70,3 +70,9 @@ func (e Entity) IsCompleted() bool {
 func (e *Entity) Complete() {
 	e.isCompleted = true
 }
+
+// ChangeTitleはTodoのタイトルを差し替える。
+// タイトルの妥当性は値オブジェクト生成時に保証される前提で受け取る。
+func (e *Entity) ChangeTitle(title Title) {
+	e.title = title
+}
